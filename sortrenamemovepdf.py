@@ -1,4 +1,5 @@
-﻿import os
+﻿# -*- coding: utf-8 -*-
+import os
 import shutil
 import PyPDF2
 from PyPDF2.errors import PdfReadError
@@ -645,4 +646,5 @@ if __name__ == "__main__":
     
     # Exit with appropriate code
     sys.exit(return_code)
+
 
