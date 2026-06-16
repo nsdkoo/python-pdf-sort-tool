@@ -24,3 +24,7 @@ python sortrenamemovepdf.py -i ./inbox -o ./sorted
 
 ## 注意
 大批量处理前请备份原文件。
+
+
+## 注意
+大批量处理前请备份原文件。
