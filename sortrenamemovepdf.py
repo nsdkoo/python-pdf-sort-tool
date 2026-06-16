@@ -562,7 +562,7 @@ def list_available_models():
 def parse_arguments():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Sort and rename PDF files based on their content",
+        description="PDF 智能分类整理：扫描、重命名并归档 PDF 文件",
         epilog="""
 Examples:
   # Use default OpenAI model
