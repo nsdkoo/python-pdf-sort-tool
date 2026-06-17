@@ -560,6 +560,15 @@ def list_available_models():
         for model in models:
             print(f"  - {model}")
 
+def validate_folder(path: str, label: str) -> str:
+    """Ensure folder exists and is a directory."""
+    resolved = os.path.abspath(path)
+    if not os.path.isdir(resolved):
+        print(f"Error: {label} folder does not exist: {resolved}")
+        sys.exit(1)
+    return resolved
+
+
 def parse_arguments():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -612,9 +621,12 @@ if __name__ == "__main__":
                 print(f"Using provided {args.provider.capitalize()} API key")
             
             # Get folder paths from arguments or prompt user
-            input_folder = args.input or input("Enter the input folder path: ")
-            corrupted_folder = args.corrupted or input("Enter the corrupted PDFs folder path: ")
-            renamed_folder = args.renamed or input("Enter the renamed PDFs folder path: ")
+            input_folder = validate_folder(
+                args.input or input("Enter the input folder path: "), "Input")
+            corrupted_folder = validate_folder(
+                args.corrupted or input("Enter the corrupted PDFs folder path: "), "Corrupted")
+            renamed_folder = validate_folder(
+                args.renamed or input("Enter the renamed PDFs folder path: "), "Renamed")
 
             # Process PDFs
             success = sort_and_rename_pdfs(input_folder, corrupted_folder, renamed_folder, args.provider, args.model)
