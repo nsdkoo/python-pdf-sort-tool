@@ -1,4 +1,4 @@
-﻿# PDF 智能分类整理工具
+# PDF 智能分类整理工具
 
 扫描目录中的 PDF，提取内容并自动重命名、分类归档。
 
@@ -18,13 +18,10 @@ python sortrenamemovepdf.py --help
 ## 示例
 
 ```bash
-python sortrenamemovepdf.py -i ./inbox -o ./sorted
+python sortrenamemovepdf.py -i ./inbox -c ./corrupted -r ./sorted
 ```
 
-
 ## 注意
-大批量处理前请备份原文件。
 
-
-## 注意
-大批量处理前请备份原文件。
+- 启动前会校验输入/输出目录是否存在
+- 大批量处理前请备份原文件
