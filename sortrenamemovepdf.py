@@ -271,7 +271,7 @@ def get_api_details(provider: str, model: str):
     
     return api_key
 
-def sort_and_rename_pdfs(input_folder, corrupted_folder, renamed_folder, provider="openai", model=None):
+def sort_and_rename_pdfs(input_folder, corrupted_folder, renamed_folder, provider="openai", model=None, dry_run=False, max_pages=None):
     """Sort and rename PDF files based on their content."""
     # Validate input paths
     if not os.path.exists(input_folder):
@@ -323,7 +323,7 @@ def sort_and_rename_pdfs(input_folder, corrupted_folder, renamed_folder, provide
                         pbar.update(1)
                         continue
                         
-                    process_pdf(input_path, filename, corrupted_folder, renamed_folder, pbar, progress_f)
+                    process_pdf(input_path, filename, corrupted_folder, renamed_folder, pbar, progress_f, dry_run, max_pages)
     except KeyboardInterrupt:
         print("\nProcess interrupted by user. Progress has been saved.")
         return True
@@ -333,7 +333,7 @@ def sort_and_rename_pdfs(input_folder, corrupted_folder, renamed_folder, provide
     
     return True
 
-def process_pdf(input_path, filename, corrupted_folder, renamed_folder, pbar, progress_f):
+def process_pdf(input_path, filename, corrupted_folder, renamed_folder, pbar, progress_f, dry_run=False, max_pages=None):
     """Process a single PDF file with error handling."""
     try:
         # Check if file exists and is accessible
@@ -341,7 +341,7 @@ def process_pdf(input_path, filename, corrupted_folder, renamed_folder, pbar, pr
             raise FileNotFoundError(f"File not found or not accessible: {input_path}")
             
         # Extract text and validate PDF in one operation
-        pdf_content = pdfs_to_text_string(input_path)
+        pdf_content = pdfs_to_text_string(input_path, max_pages=max_pages)
         
         # If pdf_content starts with "Error", the file is corrupted
         if pdf_content.startswith("Error"):
@@ -354,37 +354,44 @@ def process_pdf(input_path, filename, corrupted_folder, renamed_folder, pbar, pr
         # Handle duplicate filenames with sequential numbering
         new_file_name = handle_duplicate_filename(new_file_name, renamed_folder)
         
-        # Move file to renamed folder
         new_filepath = os.path.join(renamed_folder, new_file_name + ".pdf")
-        shutil.move(input_path, new_filepath)
-        pbar.set_postfix({"Status": "Renamed", "New Name": new_file_name})
+        if dry_run:
+            print(f"[dry-run] {filename} -> {new_file_name}.pdf")
+            pbar.set_postfix({"Status": "Preview", "New Name": new_file_name})
+        else:
+            shutil.move(input_path, new_filepath)
+            pbar.set_postfix({"Status": "Renamed", "New Name": new_file_name})
         
         # Record progress
-        try:
-            lock_file(progress_f)
-            progress_f.write(f"{filename}\n")
-            progress_f.flush()
-        finally:
-            unlock_file(progress_f)
-        
-    except (PdfReadError, OSError, FileNotFoundError) as e:
-        error_msg = f"Error with file {filename}: {str(e)}"
-        print(f"\n{error_msg}")
-        try:
-            # Only attempt to move the file if it exists
-            if os.path.exists(input_path):
-                corrupted_path = os.path.join(corrupted_folder, filename)
-                shutil.move(input_path, corrupted_path)
-                pbar.set_postfix({"Status": "Corrupted", "Moved to": corrupted_folder})
-            else:
-                pbar.set_postfix({"Status": "Error", "Message": "File not found"})
-            
+        if not dry_run:
             try:
                 lock_file(progress_f)
                 progress_f.write(f"{filename}\n")
                 progress_f.flush()
             finally:
                 unlock_file(progress_f)
+        
+    except (PdfReadError, OSError, FileNotFoundError) as e:
+        error_msg = f"Error with file {filename}: {str(e)}"
+        print(f"\n{error_msg}")
+        try:
+            if dry_run:
+                print(f"[dry-run] would move corrupted file: {filename}")
+                pbar.set_postfix({"Status": "Corrupted (preview)"})
+            elif os.path.exists(input_path):
+                corrupted_path = os.path.join(corrupted_folder, filename)
+                shutil.move(input_path, corrupted_path)
+                pbar.set_postfix({"Status": "Corrupted", "Moved to": corrupted_folder})
+            else:
+                pbar.set_postfix({"Status": "Error", "Message": "File not found"})
+            
+            if not dry_run:
+                try:
+                    lock_file(progress_f)
+                    progress_f.write(f"{filename}\n")
+                    progress_f.flush()
+                finally:
+                    unlock_file(progress_f)
         except OSError as move_error:
             pbar.set_postfix({"Status": "Error", "Message": str(move_error)})
     except Exception as e:
@@ -596,6 +603,8 @@ Examples:
     parser.add_argument("--model", "-m", help="Model to use for the selected provider (run with --list-models to see options)")
     parser.add_argument("--api-key", "-k", help="API key for the selected provider")
     parser.add_argument("--list-models", "-l", action="store_true", help="List all available models by provider and exit")
+    parser.add_argument("--dry-run", "-n", action="store_true", help="Preview renames without moving files")
+    parser.add_argument("--max-pages", type=int, help="Maximum PDF pages to extract for AI analysis")
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -629,7 +638,9 @@ if __name__ == "__main__":
                 args.renamed or input("Enter the renamed PDFs folder path: "), "Renamed")
 
             # Process PDFs
-            success = sort_and_rename_pdfs(input_folder, corrupted_folder, renamed_folder, args.provider, args.model)
+            success = sort_and_rename_pdfs(
+                input_folder, corrupted_folder, renamed_folder,
+                args.provider, args.model, args.dry_run, args.max_pages)
             
             if success:
                 print("PDF sorting and renaming completed successfully.")
